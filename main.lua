@@ -2,7 +2,7 @@ local bit = bit32
 
 -- AES-256 Encryption
 local aes = {}
-function aes.aes256_encrypt(key, plaintext)
+
     local function sub_word(word)
         local sbox = {
             0x63, 0x7C, 0x77, 0x7B, 0xF2, 0x6B, 0x6F, 0xC5, 0x30, 0x01, 0x67, 0x2B, 0xFE, 0xD7, 0xAB, 0x76,
@@ -148,7 +148,7 @@ function aes.aes256_encrypt(key, plaintext)
         return output
     end
 
-    function aes256_encrypt(plaintext, key)
+    function aes.aes256_encrypt(plaintext, key)
         local round_keys = expand_key(key)
         local encrypted_blocks = {}
         for i = 1, #plaintext / 16 do
@@ -163,7 +163,6 @@ function aes.aes256_encrypt(key, plaintext)
         end
         return encrypted_blocks
     end
-    return aes256_encrypt(plaintext,key)
-end
+
 
 return aes
