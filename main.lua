@@ -163,6 +163,7 @@ function aes.aes256_encrypt(key, plaintext)
         end
         return encrypted_blocks
     end
+    return aes256_encrypt(key, plaintext)
 end
 
 return aes
