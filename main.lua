@@ -1,205 +1,416 @@
-local bit = bit32
+-- SUBSTITUTION BOXES
+local s_box 	= { 99, 124, 119, 123, 242, 107, 111, 197,  48,   1, 103,  43, 254, 215, 171, 118, 202,
+	130, 201, 125, 250,  89,  71, 240, 173, 212, 162, 175, 156, 164, 114, 192, 183, 253, 147,  38,  54,
+	 63, 247, 204,  52, 165, 229, 241, 113, 216,  49,  21,   4, 199,  35, 195,  24, 150,   5, 154,   7,
+	 18, 128, 226, 235,  39, 178, 117,   9, 131,  44,  26,  27, 110,  90, 160,  82,  59, 214, 179,  41,
+	227,  47, 132,  83, 209,   0, 237,  32, 252, 177,  91, 106, 203, 190,  57,  74,  76,  88, 207, 208,
+	239, 170, 251,  67,  77,  51, 133,  69, 249,   2, 127,  80,  60, 159, 168,  81, 163,  64, 143, 146,
+	157,  56, 245, 188, 182, 218,  33,  16, 255, 243, 210, 205,  12,  19, 236,  95, 151,  68,  23, 196,
+	167, 126,  61, 100,  93,  25, 115,  96, 129,  79, 220,  34,  42, 144, 136,  70, 238, 184,  20, 222,
+	 94,  11, 219, 224,  50,  58,  10,  73,   6,  36,  92, 194, 211, 172,  98, 145, 149, 228, 121, 231,
+	200,  55, 109, 141, 213,  78, 169, 108,  86, 244, 234, 101, 122, 174,   8, 186, 120,  37,  46,  28,
+	166, 180, 198, 232, 221, 116,  31,  75, 189, 139, 138, 112,  62, 181, 102,  72,   3, 246,  14,  97,
+	 53,  87, 185, 134, 193,  29, 158, 225, 248, 152,  17, 105, 217, 142, 148, 155,  30, 135, 233, 206,
+	 85,  40, 223, 140, 161, 137,  13, 191, 230,  66, 104,  65, 153,  45,  15, 176,  84, 187,  22}
+local inv_s_box	= { 82,   9, 106, 213,  48,  54, 165,  56, 191,  64, 163, 158, 129, 243, 215, 251, 124,
+	227,  57, 130, 155,  47, 255, 135,  52, 142,  67,  68, 196, 222, 233, 203,  84, 123, 148,  50, 166,
+	194,  35,  61, 238,  76, 149,  11,  66, 250, 195,  78,   8,  46, 161, 102,  40, 217,  36, 178, 118,
+	 91, 162,  73, 109, 139, 209,  37, 114, 248, 246, 100, 134, 104, 152,  22, 212, 164,  92, 204,  93,
+	101, 182, 146, 108, 112,  72,  80, 253, 237, 185, 218,  94,  21,  70,  87, 167, 141, 157, 132, 144,
+	216, 171,   0, 140, 188, 211,  10, 247, 228,  88,   5, 184, 179,  69,   6, 208,  44,  30, 143, 202,
+	 63,  15,   2, 193, 175, 189,   3,   1,  19, 138, 107,  58, 145,  17,  65,  79, 103, 220, 234, 151,
+	242, 207, 206, 240, 180, 230, 115, 150, 172, 116,  34, 231, 173,  53, 133, 226, 249,  55, 232,  28,
+	117, 223, 110,  71, 241,  26, 113,  29,  41, 197, 137, 111, 183,  98,  14, 170,  24, 190,  27, 252,
+	 86,  62,  75, 198, 210, 121,  32, 154, 219, 192, 254, 120, 205,  90, 244,  31, 221, 168,  51, 136,
+	  7, 199,  49, 177,  18,  16,  89,  39, 128, 236,  95,  96,  81, 127, 169,  25, 181,  74,  13,  45,
+	229, 122, 159, 147, 201, 156, 239, 160, 224,  59,  77, 174,  42, 245, 176, 200, 235, 187,  60, 131,
+	 83, 153,  97,  23,  43,   4, 126, 186, 119, 214,  38, 225, 105,  20,  99,  85,  33,  12, 125}
 
--- AES-256 Encryption
-local aes = {}
-local function expand_key(key)
-    local w = {}
-    for i = 1, 8 do
-        local j = (i - 1) * 4
-        w[i] = {
-            bit.band(bit.rshift(key[j + 1], 24), 0xFF),
-            bit.band(bit.rshift(key[j + 2], 24), 0xFF),
-            bit.band(bit.rshift(key[j + 3], 24), 0xFF),
-            bit.band(bit.rshift(key[j + 4], 24), 0xFF)
-        }
-    end
-    for i = 9, 60 do
-        local temp = {w[i - 1][1], w[i - 1][2], w[i - 1][3], w[i - 1][4]}
-        if i % 8 == 1 then
-            temp = {
-                bit.bxor(bit.lshift(bit.bxor(temp[1], bit.bxor(bit.rshift(temp[1], 7), 1)), 24), bit.bxor(temp[2], bit.rshift(temp[2], 7))),
-                bit.bxor(bit.lshift(bit.bxor(temp[2], bit.bxor(bit.rshift(temp[2], 7), 1)), 24), bit.bxor(temp[3], bit.rshift(temp[3], 7))),
-                bit.bxor(bit.lshift(bit.bxor(temp[3], bit.xor(bit.rshift(temp[3], 7), 1)), 24), bit.bxor(temp[4], bit.rshift(temp[4], 7))),
-                bit.bxor(bit.lshift(bit.bxor(temp[4], bit.xor(bit.rshift(temp[4], 7), 1)), 24), bit.bxor(temp[1], bit.rshift(temp[1], 7)))
-            }
-            temp[1] = bit.bxor(temp[1], 0x01)
-        elseif i % 8 == 5 then
-            temp = {
-                bit.bxor(bit.lshift(bit.bxor(temp[1], bit.bxor(bit.rshift(temp[1], 7), 1)), 24), bit.bxor(temp[2], bit.rshift(temp[2], 7))),
-                bit.bxor(bit.lshift(bit.bxor(temp[2], bit.bxor(bit.rshift(temp[2], 7), 1)), 24), bit.bxor(temp[3], bit.rshift(temp[3], 7))),
-                bit.bxor(bit.lshift(bit.bxor(temp[3], bit.xor(bit.rshift(temp[3], 7), 1)), 24), bit.bxor(temp[4], bit.rshift(temp[4], 7))),
-                bit.bxor(bit.lshift(bit.bxor(temp[4], bit.xor(bit.rshift(temp[4], 7), 1)), 24), bit.bxor(temp[1], bit.rshift(temp[1], 7)))
-            }
-        end
-        w[i] = {
-            bit.bxor(w[i - 8][1], temp[1]),
-            bit.bxor(w[i - 8][2], temp[2]),
-            bit.bxor(w[i - 8][3], temp[3]),
-            bit.bxor(w[i - 8][4], temp[4])
-        }
-    end
-    return w
+-- ROUND CONSTANTS ARRAY
+local rcon = {  0,   1,   2,   4,   8,  16,  32,  64, 128,  27,  54, 108, 216, 171,  77, 154,  47,  94,
+	188,  99, 198, 151,  53, 106, 212, 179, 125, 250, 239, 197, 145,  57}
+-- MULTIPLICATION OF BINARY POLYNOMIAL
+local function xtime(x)
+	local i = bit32.lshift(x, 1)
+	return if bit32.band(x, 128) == 0 then i else bit32.bxor(i, 27) % 256
 end
-    local function sub_word(word)
-        local sbox = {
-            0x63, 0x7C, 0x77, 0x7B, 0xF2, 0x6B, 0x6F, 0xC5, 0x30, 0x01, 0x67, 0x2B, 0xFE, 0xD7, 0xAB, 0x76,
-            0xCA, 0x82, 0xC9, 0x7D, 0xFA, 0x59, 0x47, 0xF0, 0xAD, 0xD4, 0xA2, 0xAF, 0x9C, 0xA4, 0x72, 0xC0,
-            0xB7, 0xFD, 0x93, 0x26, 0x36, 0x3F, 0xF7, 0xCC, 0x34, 0xA5, 0xE5, 0xF1, 0x71, 0xD8, 0x31, 0x15,
-            0x04, 0xC7, 0x23, 0xC3, 0x18, 0x96, 0x05, 0x9A, 0x07, 0x12, 0x80, 0xE2, 0xEB, 0x27, 0xB2, 0x75,
-            0x09, 0x83, 0x2C, 0x1A, 0x1B, 0x6E, 0x5A, 0xA0, 0x52, 0x3B, 0xD6, 0xB3, 0x29, 0xE3, 0x2F, 0x84,
-            0x53, 0xD1, 0x00, 0xED, 0x20, 0xFC, 0xB1, 0x5B, 0x6A, 0xCB, 0xBE, 0x39, 0x4A, 0x4C, 0x58, 0xCF,
-            0xD0, 0xEF, 0xAA, 0xFB, 0x43, 0x4D, 0x33, 0x85, 0x45, 0xF9, 0x02, 0x7F, 0x50, 0x3C, 0x9F, 0xA8,
-            0x51, 0xA3, 0x40, 0x8F, 0x92, 0x9D, 0x38, 0xF5, 0xBC, 0xB6, 0xDA, 0x21, 0x10, 0xFF, 0xF3, 0xD2,
-            0xCD, 0x0C, 0x13, 0xEC, 0x5F, 0x97, 0x44, 0x17, 0xC4, 0xA7, 0x7E, 0x3D, 0x64, 0x5D, 0x19, 0x73,
-            0x60, 0x81, 0x4F, 0xDC, 0x22, 0x2A, 0x90, 0x88, 0x46, 0xEE, 0xB8, 0x14, 0xDE, 0x5E, 0x0B, 0xDB,
-            0xE0, 0x32, 0x3A, 0x0A, 0x49, 0x06, 0x24, 0x5C, 0xC2, 0xD3, 0xAC, 0x62, 0x91, 0x95, 0xE4, 0x79,
-            0xE7, 0xC8, 0x37, 0x6D, 0x8D, 0xD5, 0x4E, 0xA9, 0x6C, 0x56, 0xF4, 0xEA, 0x65, 0x7A, 0xAE, 0x08,
-            0xBA, 0x78, 0x25, 0x2E, 0x1C, 0xA6, 0xB4, 0xC6, 0xE8, 0xDD, 0x74, 0x1F, 0x4B, 0xBD, 0x8B, 0x8A,
-            0x70, 0x3E, 0xB5, 0x66, 0x48, 0x03, 0xF6, 0x0E, 0x61, 0x35, 0x57, 0xB9, 0x86, 0xC1, 0x1D, 0x9E,
-            0xE1, 0xF8, 0x98, 0x11, 0x69, 0xD9, 0x8E, 0x94, 0x9B, 0x1E, 0x87, 0xE9, 0xCE, 0x55, 0x28, 0xDF,
-            0x8C, 0xA1, 0x89, 0x0D, 0xBF, 0xE6, 0x42, 0x68, 0x41, 0x99, 0x2D, 0x0F, 0xB0, 0x54, 0xBB, 0x16
-        }
-        return bit.bxor(sbox[bit.band(bit.rshift(word, 24), 0xFF)], bit.lshift(sbox[bit.band(bit.rshift(word, 16), 0xFF)], 8),
-                        bit.lshift(sbox[bit.band(bit.rshift(word, 8), 0xFF)], 16), bit.lshift(sbox[bit.band(word, 0xFF)], 24))
-    end
 
-    local function key_expansion(key)
-        local rcon = {
-            0x01, 0x00, 0x00, 0x00, 0x02, 0x00, 0x00, 0x00, 0x04, 0x00, 0x00, 0x00, 0x08, 0x00, 0x00, 0x00,
-            0x10, 0x00, 0x00, 0x00, 0x20, 0x00, 0x00, 0x00, 0x40, 0x00, 0x00, 0x00, 0x80, 0x00, 0x00, 0x00,
-            0x1B, 0x00, 0x00, 0x00, 0x36, 0x00, 0x00, 0x00, 0x6C, 0x00, 0x00, 0x00, 0xD8, 0x00, 0x00, 0x00,
-            0xAB, 0x00, 0x00, 0x00, 0x4D, 0x00, 0x00, 0x00, 0x9A, 0x00, 0x00, 0x00, 0x2F, 0x00, 0x00, 0x00,
-            0x5E, 0x00, 0x00, 0x00, 0xBC, 0x00, 0x00, 0x00, 0x63, 0x00, 0x00, 0x00, 0xC6, 0x00, 0x00, 0x00,
-            0x97, 0x00, 0x00, 0x00, 0x35, 0x00, 0x00, 0x00, 0x6A, 0x00, 0x00, 0x00, 0xD4, 0x00, 0x00, 0x00,
-            0xB3, 0x00, 0x00, 0x00, 0x7D, 0x00, 0x00, 0x00, 0xFA, 0x00, 0x00, 0x00, 0xEF, 0x00, 0x00, 0x00,
-            0xC5, 0x00, 0x00, 0x00, 0x91, 0x00, 0x00, 0x00, 0x39, 0x00, 0x00, 0x00, 0x72, 0x00, 0x00, 0x00
-        }
-        local w = {}
-        for i = 1, 8 do
-            w[i] = bit.band(bit.lshift(key[i * 4 - 3], 24), 0xFF000000) + bit.band(bit.lshift(key[i * 4 - 2], 16), 0x00FF0000)
-                + bit.band(bit.lshift(key[i * 4 - 1], 8), 0x0000FF00) + bit.band(key[i * 4], 0x000000FF)
-        end
-        for i = 9, 60 do
-            local temp = w[i - 1]
-            if i % 8 == 1 then
-                temp = bit.bxor(sub_word(bit.rshift(temp, 8)), rcon[i / 8])
-            elseif i % 8 == 5 then
-                temp = sub_word(temp)
-            end
-            w[i] = bit.bxor(w[i - 8], temp)
-        end
-        return w
-    end
+-- TRANSFORMATION FUNCTIONS
+local function subBytes		(s, inv) 		-- Processes State using the S-box
+	inv = if inv then inv_s_box else s_box
+	for i = 1, 4 do
+		for j = 1, 4 do
+			s[i][j] = inv[s[i][j] + 1]
+		end
+	end
+end
+local function shiftRows		(s, inv) 	-- Processes State by circularly shifting rows
+	s[1][3], s[2][3], s[3][3], s[4][3] = s[3][3], s[4][3], s[1][3], s[2][3]
+	if inv then
+		s[1][2], s[2][2], s[3][2], s[4][2] = s[4][2], s[1][2], s[2][2], s[3][2]
+		s[1][4], s[2][4], s[3][4], s[4][4] = s[2][4], s[3][4], s[4][4], s[1][4]
+	else
+		s[1][2], s[2][2], s[3][2], s[4][2] = s[2][2], s[3][2], s[4][2], s[1][2]
+		s[1][4], s[2][4], s[3][4], s[4][4] = s[4][4], s[1][4], s[2][4], s[3][4]
+	end
+end
+local function addRoundKey	(s, k) 			-- Processes Cipher by adding a round key to the State
+	for i = 1, 4 do
+		for j = 1, 4 do
+			s[i][j] = bit32.bxor(s[i][j], k[i][j])
+		end
+	end
+end
+local function mixColumns	(s, inv) 		-- Processes Cipher by taking and mixing State columns
+	local t, u
+	if inv then
+		for i = 1, 4 do
+			t = xtime(xtime(bit32.bxor(s[i][1], s[i][3])))
+			u = xtime(xtime(bit32.bxor(s[i][2], s[i][4])))
+			s[i][1], s[i][2] = bit32.bxor(s[i][1], t), bit32.bxor(s[i][2], u)
+			s[i][3], s[i][4] = bit32.bxor(s[i][3], t), bit32.bxor(s[i][4], u)
+		end
+	end
 
-    local function shift_rows(state)
-        for row = 1, 4 do
-            for shift = 1, row - 1 do
-                state[row][1], state[row][2], state[row][3], state[row][4] = state[row][2], state[row][3], state[row][4], state[row][1]
-            end
-        end
-        return state
-    end
+	local i
+	for j = 1, 4 do
+		i = s[j]
+		t, u = bit32.bxor		(i[1], i[2], i[3], i[4]), i[1]
+		for k = 1, 4 do
+			i[k] = bit32.bxor	(i[k], t, xtime(bit32.bxor(i[k], i[k + 1] or u)))
+		end
+	end
+end
 
-    local function mix_columns(state)
-        local mul = {
-            {0x02, 0x03, 0x01, 0x01},
-            {0x01, 0x02, 0x03, 0x01},
-            {0x01, 0x01, 0x02, 0x03},
-            {0x03, 0x01, 0x01, 0x02}
-        }
-        local result = {}
-        for col = 1, 4 do
-            result[col] = {}
-            for row = 1, 4 do
-                result[col][row] = bit.bxor(bit.bxor(bit.bxor(bit.band(bit.lshift(mul[row][1], 1), 0xFF) * bit.band(bit.rshift(state[1][col], 7), 1),
-                                                                 bit.band(bit.lshift(mul[row][2], 1), 0xFF) * bit.band(bit.rshift(state[2][col], 7), 1)),
-                                                      bit.band(bit.lshift(mul[row][3], 1), 0xFF) * bit.band(bit.rshift(state[3][col], 7), 1)),
-                                           bit.band(bit.lshift(mul[row][4], 1), 0xFF) * bit.band(bit.rshift(state[4][col], 7), 1))
-                for i = 1, 3 do
-                    state[i][col] = bit.band(bit.lshift(state[i][col], 1), 0xFE) + bit.band(bit.rshift(state[i + 1][col], 7), 1)
-                end
-                state[4][col] = bit.band(bit.lshift(state[4][col], 1), 0xFE) + bit.band(bit.rshift(result[col][row], 7), 1)
-            end
-        end
-        return result
-    end
+-- BYTE ARRAY UTILITIES
+local function bytesToMatrix	(t, c, inv) -- Converts a byte array to a 4x4 matrix
+	if inv then
+		table.move		(c[1], 1, 4, 1, t)
+		table.move		(c[2], 1, 4, 5, t)
+		table.move		(c[3], 1, 4, 9, t)
+		table.move		(c[4], 1, 4, 13, t)
+	else
+		for i = 1, #c / 4 do
+			table.clear	(t[i])
+			table.move	(c, i * 4 - 3, i * 4, 1, t[i])
+		end
+	end
+	
+	return t
+end
+local function xorBytes		(t, a, b) 		-- Returns bitwise XOR of all their bytes
+	table.clear		(t)
+	
+	for i = 1, math.min(#a, #b) do
+		table.insert(t, bit32.bxor(a[i], b[i]))
+	end
+	return t
+end
+local function incBytes		(a, inv)		-- Increment byte array by one
+	local o = true
+	for i = if inv then 1 else #a, if inv then #a else 1, if inv then 1 else - 1 do
+		if a[i] == 255 then
+			a[i] = 0
+		else
+			a[i] += 1
+			o = false
+			break
+		end
+	end
+	
+	return o, a
+end
 
-    local function add_round_key(state, round_key)
-        for col = 1, 4 do
-            for row = 1, 4 do
-                state[row][col] = bit.bxor(state[row][col], bit.rshift(round_key[col], (4 - row) * 8))
-            end
-        end
-        return state
-    end
+-- MAIN ALGORITHM
+local function expandKey	(key) 				-- Key expansion
+	local kc = bytesToMatrix(if #key == 16 then {{}, {}, {}, {}} elseif #key == 24 then {{}, {}, {}, {}
+		, {}, {}} else {{}, {}, {}, {}, {}, {}, {}, {}}, key)
+	local is = #key / 4
+	local i, t, w = 2, {}, nil
+	
+	while #kc < (#key / 4 + 7) * 4 do
+		w = table.clone	(kc[#kc])
+		if #kc % is == 0 then
+			table.insert(w, table.remove(w, 1))
+			for j = 1, 4 do
+				w[j] = s_box[w[j] + 1]
+			end
+			w[1]	 = bit32.bxor(w[1], rcon[i])
+			i 	+= 1
+		elseif #key == 32 and #kc % is == 4 then
+			for j = 1, 4 do
+				w[j] = s_box[w[j] + 1]
+			end
+		end
+		
+		table.clear	(t)
+		xorBytes	(w, table.move(w, 1, 4, 1, t), kc[#kc - is + 1])
+		table.insert(kc, w)
+	end
+	
+	table.clear		(t)
+	for i = 1, #kc / 4 do
+		table.insert(t, {})
+		table.move	(kc, i * 4 - 3, i * 4, 1, t[#t])
+	end
+	return t
+end
+local function encrypt	(key, km, pt, ps, r) 	-- Block cipher encryption
+	bytesToMatrix	(ps, pt)
+	addRoundKey		(ps, km[1])
+	
+	for i = 2, #key / 4 + 6 do
+		subBytes	(ps)
+		shiftRows	(ps)
+		mixColumns	(ps)
+		addRoundKey	(ps, km[i])
+	end
+	subBytes		(ps)
+	shiftRows		(ps)
+	addRoundKey		(ps, km[#km])
+	
+	return bytesToMatrix(r, ps, true)
+end
+local function decrypt	(key, km, ct, cs, r) 	-- Block cipher decryption
+	bytesToMatrix	(cs, ct)
+	
+	addRoundKey		(cs, km[#km])
+	shiftRows		(cs, true)
+	subBytes		(cs, true)
+	for i = #key / 4 + 6, 2, - 1 do
+		addRoundKey	(cs, km[i])
+		mixColumns	(cs, true)
+		shiftRows	(cs, true)
+		subBytes	(cs, true)
+	end
+	
+	addRoundKey		(cs, km[1])
+	return bytesToMatrix(r, cs, true)
+end
 
-    local function sub_bytes(state)
-        for row = 1, 4 do
-            for col = 1, 4 do
-                local sbox = {
-                    {0x63, 0x7C, 0x77, 0x7B, 0xF2, 0x6B, 0x6F, 0xC5, 0x30, 0x01, 0x67, 0x2B, 0xFE, 0xD7, 0xAB, 0x76},
-                    {0xCA, 0x82, 0xC9, 0x7D, 0xFA, 0x59, 0x47, 0xF0, 0xAD, 0xD4, 0xA2, 0xAF, 0x9C, 0xA4, 0x72, 0xC0},
-                    {0xB7, 0xFD, 0x93, 0x26, 0x36, 0x3F, 0xF7, 0xCC, 0x34, 0xA5, 0xE5, 0xF1, 0x71, 0xD8, 0x31, 0x15},
-                    {0x04, 0xC7, 0x23, 0xC3, 0x18, 0x96, 0x05, 0x9A, 0x07, 0x12, 0x80, 0xE2, 0xEB, 0x27, 0xB2, 0x75},
-                    {0x09, 0x83, 0x2C, 0x1A, 0x1B, 0x6E, 0x5A, 0xA0, 0x52, 0x3B, 0xD6, 0xB3, 0x29, 0xE3, 0x2F, 0x84},
-                    {0x53, 0xD1, 0x00, 0xED, 0x20, 0xFC, 0xB1, 0x5B, 0x6A, 0xCB, 0xBE, 0x39, 0x4A, 0x4C, 0x58, 0xCF},
-                    {0xD0, 0xEF, 0xAA, 0xFB, 0x43, 0x4D, 0x33, 0x85, 0x45, 0xF9, 0x02, 0x7F, 0x50, 0x3C, 0x9F, 0xA8},
-                    {0x51, 0xA3, 0x40, 0x8F, 0x92, 0x9D, 0x38, 0xF5, 0xBC, 0xB6, 0xDA, 0x21, 0x10, 0xFF, 0xF3, 0xD2},
-                    {0xCD, 0x0C, 0x13, 0xEC, 0x5F, 0x97, 0x44, 0x17, 0xC4, 0xA7, 0x7E, 0x3D, 0x64, 0x5D, 0x19, 0x73},
-                    {0x60, 0x81, 0x4F, 0xDC, 0x22, 0x2A, 0x90, 0x88, 0x46, 0xEE, 0xB8, 0x14, 0xDE, 0x5E, 0x0B, 0xDB},
-                    {0xE0, 0x32, 0x3A, 0x0A, 0x49, 0x06, 0x24, 0x5C, 0xC2, 0xD3, 0xAC, 0x62, 0x91, 0x95, 0xE4, 0x79},
-                    {0xE7, 0xC8, 0x37, 0x6D, 0x8D, 0xD5, 0x4E, 0xA9, 0x6C, 0x56, 0xF4, 0xEA, 0x65, 0x7A, 0xAE, 0x08},
-                    {0xBA, 0x78, 0x25, 0x2E, 0x1C, 0xA6, 0xB4, 0xC6, 0xE8, 0xDD, 0x74, 0x1F, 0x4B, 0xBD, 0x8B, 0x8A},
-                    {0x70, 0x3E, 0xB5, 0x66, 0x48, 0x03, 0xF6, 0x0E, 0x61, 0x35, 0x57, 0xB9, 0x86, 0xC1, 0x1D, 0x9E},
-                    {0xE1, 0xF8, 0x98, 0x11, 0x69, 0xD9, 0x8E, 0x94, 0x9B, 0x1E, 0x87, 0xE9, 0xCE, 0x55, 0x28, 0xDF},
-                    {0x8C, 0xA1, 0x89, 0x0D, 0xBF, 0xE6, 0x42, 0x68, 0x41, 0x99, 0x2D, 0x0F, 0xB0, 0x54, 0xBB, 0x16}
-                }
-                state[row][col] = sbox[bit.band(bit.rshift(state[row][col], 4), 0x0F) + 1][bit.band(state[row][col], 0x0F) + 1]
-            end
-        end
-        return state
-    end
+-- INITIALIZATION FUNCTIONS
+local function convertType	(a) 					-- Converts data to bytes if possible
+	if type(a) == "string" then
+		local r = {}
 
-    local function encrypt_block(block, round_keys)
-        local state = {
-            {bit.band(bit.rshift(block[1], 24), 0xFF), bit.band(bit.rshift(block[2], 24), 0xFF), bit.band(bit.rshift(block[3], 24), 0xFF), bit.band(bit.rshift(block[4], 24), 0xFF)},
-            {bit.band(bit.rshift(block[1], 16), 0xFF), bit.band(bit.rshift(block[2], 16), 0xFF), bit.band(bit.rshift(block[3], 16), 0xFF), bit.band(bit.rshift(block[4], 16), 0xFF)},
-            {bit.band(bit.rshift(block[1], 8), 0xFF), bit.band(bit.rshift(block[2], 8), 0xFF), bit.band(bit.rshift(block[3], 8), 0xFF), bit.band(bit.rshift(block[4], 8), 0xFF)},
-            {bit.band(block[1], 0xFF), bit.band(block[2], 0xFF), bit.band(block[3], 0xFF), bit.band(block[4], 0xFF)}
-        }
-        state = add_round_key(state, round_keys[1])
-        for round = 2, 14 do
-            state = sub_bytes(state)
-            state = shift_rows(state)
-            if round ~= 14 then
-                state = mix_columns(state)
-            end
-            state = add_round_key(state, round_keys[round])
-        end
-        local output = {}
-        for col = 1, 4 do
-            for row = 1, 4 do
-                output[col * 4 - (4 - row)] = state[row][col]
-            end
-        end
-        return output
-    end
+		for i = 1, string.len(a), 7997 do
+			table.move({string.byte(a, i, i + 7996)}, 1, 7997, i, r)
+		end
+		return r
+	elseif type(a) == "table" then
+		for _, i in ipairs(a) do
+			assert(type(i) == "number" and math.floor(i) == i and 0 <= i and i < 256,
+				"Unable to cast value to bytes")
+		end
+		return a
+	else
+		error("Unable to cast value to bytes")
+	end
+end
+local function init			(key, txt, m, iv, s) 	-- Initializes functions if possible
+	key = convertType(key)
+	assert(#key == 16 or #key == 24 or #key == 32, "Key must be either 16, 24 or 32 bytes long")
+	txt = convertType(txt)
+	assert(#txt % (s or 16) == 0, "Input must be a multiple of " .. (if s then "segment size " .. s
+		else "16") .. " bytes in length")
+	if m then
+		if type(iv) == "table" then
+			iv = table.clone(iv)
+			local l, e 		= iv.Length, iv.LittleEndian
+			assert(type(l) == "number" and 0 < l and l <= 16,
+				"Counter value length must be between 1 and 16 bytes")
+			iv.Prefix 		= convertType(iv.Prefix or {})
+			iv.Suffix 		= convertType(iv.Suffix or {})
+			assert(#iv.Prefix + #iv.Suffix + l == 16, "Counter must be 16 bytes long")
+			iv.InitValue 	= if iv.InitValue == nil then {1} else table.clone(convertType(iv.InitValue
+			))
+			assert(#iv.InitValue <= l, "Initial value length must be of the counter value")
+			iv.InitOverflow = if iv.InitOverflow == nil then table.create(l, 0) else table.clone(
+				convertType(iv.InitOverflow))
+			assert(#iv.InitOverflow <= l,
+				"Initial overflow value length must be of the counter value")
+			for _ = 1, l - #iv.InitValue do
+				table.insert(iv.InitValue, 1 + if e then #iv.InitValue else 0, 0)
+			end
+			for _ = 1, l - #iv.InitOverflow do
+				table.insert(iv.InitOverflow, 1 + if e then #iv.InitOverflow else 0, 0)
+			end
+		elseif type(iv) ~= "function" then
+			local i, t = if iv then convertType(iv) else table.create(16, 0), {}
+			assert(#i == 16, "Counter must be 16 bytes long")
+			iv = {Length = 16, Prefix = t, Suffix = t, InitValue = i,
+				InitOverflow = table.create(16, 0)}
+		end
+	elseif m == false then
+		iv 	= if iv == nil then  table.create(16, 0) else convertType(iv)
+		assert(#iv == 16, "Initialization vector must be 16 bytes long")
+	end
+	if s then
+		s = math.floor(tonumber(s) or 1)
+		assert(type(s) == "number" and 0 < s and s <= 16, "Segment size must be between 1 and 16 bytes"
+		)
+	end
+	
+	return key, txt, expandKey(key), iv, s
+end
+type bytes = {number} -- Type instance of a valid bytes object
 
-    function aes.aes256_encrypt(plaintext, key)
-        local round_keys = expand_key(key)
-        local encrypted_blocks = {}
-        for i = 1, #plaintext / 16 do
-            local block = {}
-            for j = 1, 16 do
-                block[j] = plaintext[(i - 1) * 16 + j]
-            end
-            local encrypted_block = encrypt_block(block, round_keys)
-            for j = 1, 16 do
-                encrypted_blocks[(i - 1) * 16 + j] = encrypted_block[j]
-            end
-        end
-        return encrypted_blocks
-    end
-
-
-return aes
+-- CIPHER MODES OF OPERATION
+return {
+	-- Electronic codebook (ECB)
+	encrypt_ECB = function(key : bytes, plainText : bytes) 									: bytes
+		local km
+		key, plainText, km = init(key, plainText)
+		
+		local b, k, s, t = {}, {}, {{}, {}, {}, {}}, {}
+		for i = 1, #plainText, 16 do
+			table.move(plainText, i, i + 15, 1, k)
+			table.move(encrypt(key, km, k, s, t), 1, 16, i, b)
+		end
+		
+		return b
+	end,
+	decrypt_ECB = function(key : bytes, cipherText : bytes) 								: bytes
+		local km
+		key, cipherText, km = init(key, cipherText)
+		
+		local b, k, s, t = {}, {}, {{}, {}, {}, {}}, {}
+		for i = 1, #cipherText, 16 do
+			table.move(cipherText, i, i + 15, 1, k)
+			table.move(decrypt(key, km, k, s, t), 1, 16, i, b)
+		end
+		
+		return b
+	end,
+	-- Cipher block chaining (CBC)
+	encrypt_CBC = function(key : bytes, plainText : bytes, initVector : bytes?) 			: bytes
+		local km
+		key, plainText, km, initVector = init(key, plainText, false, initVector)
+		
+		local b, k, p, s, t = {}, {}, initVector, {{}, {}, {}, {}}, {}
+		for i = 1, #plainText, 16 do
+			table.move(plainText, i, i + 15, 1, k)
+			table.move(encrypt(key, km, xorBytes(t, k, p), s, p), 1, 16, i, b)
+		end
+		
+		return b
+	end,
+	decrypt_CBC = function(key : bytes, cipherText : bytes, initVector : bytes?) 			: bytes
+		local km
+		key, cipherText, km, initVector = init(key, cipherText, false, initVector)
+		
+		local b, k, p, s, t = {}, {}, initVector, {{}, {}, {}, {}}, {}
+		for i = 1, #cipherText, 16 do
+			table.move(cipherText, i, i + 15, 1, k)
+			table.move(xorBytes(k, decrypt(key, km, k, s, t), p), 1, 16, i, b)
+			table.move(cipherText, i, i + 15, 1, p)
+		end
+		
+		return b
+	end,
+	-- Propagating cipher block chaining (PCBC)
+	encrypt_PCBC = function(key : bytes, plainText : bytes, initVector : bytes?) 			: bytes
+		local km
+		key, plainText, km, initVector = init(key, plainText, false, initVector)
+		
+		local b, k, c, p, s, t = {}, {}, initVector, table.create(16, 0), {{}, {}, {}, {}}, {}
+		for i = 1, #plainText, 16 do
+			table.move(plainText, i, i + 15, 1, k)
+			table.move(encrypt(key, km, xorBytes(k, xorBytes(t, c, k), p), s, c), 1, 16, i, b)
+			table.move(plainText, i, i + 15, 1, p)
+		end
+		
+		return b
+	end,
+	decrypt_PCBC = function(key : bytes, cipherText : bytes, initVector : bytes?) 			: bytes
+		local km
+		key, cipherText, km, initVector = init(key, cipherText, false, initVector)
+		
+		local b, k, c, p, s, t = {}, {}, initVector, table.create(16, 0), {{}, {}, {}, {}}, {}
+		for i = 1, #cipherText, 16 do
+			table.move(cipherText, i, i + 15, 1, k)
+			table.move(xorBytes(p, decrypt(key, km, k, s, t), xorBytes(k, c, p)), 1, 16, i, b)
+			table.move(cipherText, i, i + 15, 1, c)
+		end
+		
+		return b
+	end,
+	-- Cipher feedback (CFB)
+	encrypt_CFB = function(key : bytes, plainText : bytes, initVector : bytes?, segmentSize : number?)
+		: bytes
+		local km
+		key, plainText, km, initVector, segmentSize = init(key, plainText, false, initVector,
+			if segmentSize == nil then 1 else segmentSize)
+		
+		local b, k, p, q, s, t = {}, {}, initVector, {}, {{}, {}, {}, {}}, {}
+		for i = 1, #plainText, segmentSize do
+			table.move(plainText, i, i + segmentSize - 1, 1, k)
+			table.move(xorBytes(q, encrypt(key, km, p, s, t), k), 1, segmentSize, i, b)
+			for j = 16, segmentSize + 1, - 1 do
+				table.insert(q, 1, p[j])
+			end
+			table.move(q, 1, 16, 1, p)
+		end
+		
+		return b
+	end,
+	decrypt_CFB = function(key : bytes, cipherText : bytes, initVector : bytes, segmentSize : number?)
+		: bytes
+		local km
+		key, cipherText, km, initVector, segmentSize = init(key, cipherText, false, initVector,
+			if segmentSize == nil then 1 else segmentSize)
+		
+		local b, k, p, q, s, t = {}, {}, initVector, {}, {{}, {}, {}, {}}, {}
+		for i = 1, #cipherText, segmentSize do
+			table.move(cipherText, i, i + segmentSize - 1, 1, k)
+			table.move(xorBytes(q, encrypt(key, km, p, s, t), k), 1, segmentSize, i, b)
+			for j = 16, segmentSize + 1, - 1 do
+				table.insert(k, 1, p[j])
+			end
+			table.move(k, 1, 16, 1, p)
+		end
+		
+		return b
+	end,
+	-- Output feedback (OFB)
+	encrypt_OFB = function(key : bytes, plainText : bytes, initVector : bytes?) 			: bytes
+		local km
+		key, plainText, km, initVector = init(key, plainText, false, initVector)
+		
+		local b, k, p, s, t = {}, {}, initVector, {{}, {}, {}, {}}, {}
+		for i = 1, #plainText, 16 do
+			table.move(plainText, i, i + 15, 1, k)
+			table.move(encrypt(key, km, p, s, t), 1, 16, 1, p)
+			table.move(xorBytes(t, k, p), 1, 16, i, b)
+		end
+		
+		return b
+	end,
+	-- Counter (CTR)
+	encrypt_CTR = function(key : bytes, plainText : bytes, counter : ((bytes) -> bytes) | bytes | { [
+		string]: any }?) : bytes
+		local km
+		key, plainText, km, counter = init(key, plainText, true, counter)
+		
+		local b, k, c, s, t, r, n = {}, {}, {}, {{}, {}, {}, {}}, {}, type(counter) == "table", nil
+		for i = 1, #plainText, 16 do
+			if r then
+				if i > 1 and incBytes(counter.InitValue, counter.LittleEndian) then
+					table.move(counter.InitOverflow, 1, 16, 1, counter.InitValue)
+				end
+				table.clear	(c)
+				table.move	(counter.Prefix, 1, #counter.Prefix, 1, c)
+				table.move	(counter.InitValue, 1, counter.Length, #c + 1, c)
+				table.move	(counter.Suffix, 1, #counter.Suffix, #c + 1, c)
+			else
+				n = convertType(counter(c, (i + 15) / 16))
+				assert		(#n == 16, "Counter must be 16 bytes long")
+				table.move	(n, 1, 16, 1, c)
+			end
+			table.move(plainText, i, i + 15, 1, k)
+			table.move(xorBytes(c, encrypt(key, km, c, s, t), k), 1, 16, i, b)
+		end
+		
+		return b
+	end
+} -- Returns the library
