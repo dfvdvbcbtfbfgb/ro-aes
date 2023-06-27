@@ -1,4 +1,4 @@
-local bit = require("bit")
+local bit = bit32
 
 -- AES-256 Encryption
 function aes256_encrypt(key, plaintext)
