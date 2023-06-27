@@ -1,7 +1,8 @@
 local bit = bit32
 
 -- AES-256 Encryption
-function aes256_encrypt(key, plaintext)
+local aes = {}
+function aes.aes256_encrypt(key, plaintext)
     local function sub_word(word)
         local sbox = {
             0x63, 0x7C, 0x77, 0x7B, 0xF2, 0x6B, 0x6F, 0xC5, 0x30, 0x01, 0x67, 0x2B, 0xFE, 0xD7, 0xAB, 0x76,
@@ -164,4 +165,4 @@ function aes256_encrypt(key, plaintext)
     end
 end
 
-return aes256
+return aes
