@@ -2,7 +2,44 @@ local bit = bit32
 
 -- AES-256 Encryption
 local aes = {}
-
+local function expand_key(key)
+    local w = {}
+    for i = 1, 8 do
+        local j = (i - 1) * 4
+        w[i] = {
+            bit.band(bit.rshift(key[j + 1], 24), 0xFF),
+            bit.band(bit.rshift(key[j + 2], 24), 0xFF),
+            bit.band(bit.rshift(key[j + 3], 24), 0xFF),
+            bit.band(bit.rshift(key[j + 4], 24), 0xFF)
+        }
+    end
+    for i = 9, 60 do
+        local temp = {w[i - 1][1], w[i - 1][2], w[i - 1][3], w[i - 1][4]}
+        if i % 8 == 1 then
+            temp = {
+                bit.bxor(bit.lshift(bit.bxor(temp[1], bit.bxor(bit.rshift(temp[1], 7), 1)), 24), bit.bxor(temp[2], bit.rshift(temp[2], 7))),
+                bit.bxor(bit.lshift(bit.bxor(temp[2], bit.bxor(bit.rshift(temp[2], 7), 1)), 24), bit.bxor(temp[3], bit.rshift(temp[3], 7))),
+                bit.bxor(bit.lshift(bit.bxor(temp[3], bit.xor(bit.rshift(temp[3], 7), 1)), 24), bit.bxor(temp[4], bit.rshift(temp[4], 7))),
+                bit.bxor(bit.lshift(bit.bxor(temp[4], bit.xor(bit.rshift(temp[4], 7), 1)), 24), bit.bxor(temp[1], bit.rshift(temp[1], 7)))
+            }
+            temp[1] = bit.bxor(temp[1], 0x01)
+        elseif i % 8 == 5 then
+            temp = {
+                bit.bxor(bit.lshift(bit.bxor(temp[1], bit.bxor(bit.rshift(temp[1], 7), 1)), 24), bit.bxor(temp[2], bit.rshift(temp[2], 7))),
+                bit.bxor(bit.lshift(bit.bxor(temp[2], bit.bxor(bit.rshift(temp[2], 7), 1)), 24), bit.bxor(temp[3], bit.rshift(temp[3], 7))),
+                bit.bxor(bit.lshift(bit.bxor(temp[3], bit.xor(bit.rshift(temp[3], 7), 1)), 24), bit.bxor(temp[4], bit.rshift(temp[4], 7))),
+                bit.bxor(bit.lshift(bit.bxor(temp[4], bit.xor(bit.rshift(temp[4], 7), 1)), 24), bit.bxor(temp[1], bit.rshift(temp[1], 7)))
+            }
+        end
+        w[i] = {
+            bit.bxor(w[i - 8][1], temp[1]),
+            bit.bxor(w[i - 8][2], temp[2]),
+            bit.bxor(w[i - 8][3], temp[3]),
+            bit.bxor(w[i - 8][4], temp[4])
+        }
+    end
+    return w
+end
     local function sub_word(word)
         local sbox = {
             0x63, 0x7C, 0x77, 0x7B, 0xF2, 0x6B, 0x6F, 0xC5, 0x30, 0x01, 0x67, 0x2B, 0xFE, 0xD7, 0xAB, 0x76,
